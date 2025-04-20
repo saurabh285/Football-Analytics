@@ -6,3 +6,4 @@ streamlit
 google-generativeai
 scikit-learn 
 scipy
+plotly
