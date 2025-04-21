@@ -18,7 +18,7 @@ fixture_df = pd.read_csv("match_fixtures.csv")
 df_can = df_can.merge(fixture_df, on="match_num", how="left")
 df_milner = df_milner.merge(fixture_df, on="match_num", how="left")
 
-st.markdown("# Navigation")
+st.markdown("# FootBall Analytics - Trends & Comparison")
 menu = st.radio(" ", [ "Player 1", "Player 2", "Compare Players", "Matches"], horizontal=True)
 
 
