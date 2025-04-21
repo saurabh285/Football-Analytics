@@ -19,11 +19,11 @@ df_can = df_can.merge(fixture_df, on="match_num", how="left")
 df_milner = df_milner.merge(fixture_df, on="match_num", how="left")
 
 st.markdown("# FootBall Analytics - Trends & Comparison")
-menu = st.radio(" ", [ "Player 1", "Player 2", "Compare Players", "Matches"], horizontal=True)
+menu = st.radio(" ", [ "Emre Can", "James Milner", "Compare Players", "Matches"], horizontal=True)
 
 
-if menu in ["Player 1", "Player 2"]:
-    player = "Emre Can" if menu == "Player 1" else "James Milner"
+if menu in ["Emre Can", "James Milner"]:
+    player = "Emre Can" if menu == "Emre Can" else "James Milner"
     df = df_can.copy() if player == "Emre Can" else df_milner.copy()
     df = detect_anomalies(df)
     st.title(f"{player} - Stats + Anomalies")
