@@ -26,7 +26,7 @@ if menu in ["Player 1", "Player 2"]:
     player = "Emre Can" if menu == "Player 1" else "James Milner"
     df = df_can.copy() if player == "Emre Can" else df_milner.copy()
     df = detect_anomalies(df)
-    st.markdown(f"## {player} - Stats + Anomalies")
+    st.title(f"{player} - Stats + Anomalies")
 
     for metric in metrics:
         if st.button(f"Show '{metric.replace('_', ' ').title()}'"):
