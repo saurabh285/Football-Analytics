@@ -10,8 +10,15 @@ from analysis import detect_anomalies
 import google.generativeai as genai
 st.set_page_config(page_title="Football Analytics", layout="wide")
 
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-from llm_utils import describe_plot, compare_players, model
+# Configure API key first, before importing llm_utils
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except KeyError:
+    st.error("⚠️ GEMINI_API_KEY not found in Streamlit secrets. Please add it to your Streamlit secrets.")
+    st.stop()
+
+# Now import LLM utilities after API key is configured
+from llm_utils import describe_plot, compare_players
 df_can, df_milner = load_data()
 
 fixture_df = pd.read_csv("match_fixtures.csv")
@@ -28,39 +35,52 @@ if menu in ["Emre Can", "James Milner"]:
     df = detect_anomalies(df)
     st.title(f"{player} - Stats + Anomalies")
 
-    for metric in metrics:
-        if st.button(f"Show '{metric.replace('_', ' ').title()}'"):
-            normal_df = df[df['anomaly_label'] != 'Anomaly']
-            anomaly_df = df[df['anomaly_label'] == 'Anomaly']
+    # Use selectbox instead of buttons to avoid state issues
+    selected_metric = st.selectbox("Select a metric to analyze:", metrics, format_func=lambda x: x.replace('_', ' ').title())
+    
+    if selected_metric:
+        # Fill NaN anomaly labels with 'Normal' for display
+        if 'anomaly_label' not in df.columns:
+            df['anomaly_label'] = 'Normal'
+        df['anomaly_label'] = df['anomaly_label'].fillna('Normal')
+        
+        normal_df = df[df['anomaly_label'] != 'Anomaly']
+        anomaly_df = df[df['anomaly_label'] == 'Anomaly']
 
-            fig = go.Figure()
+        fig = go.Figure()
 
+        if not normal_df.empty:
             fig.add_trace(go.Scatter(
                 x=normal_df['match_num'],
-                y=normal_df[metric],
+                y=normal_df[selected_metric],
                 mode='lines+markers',
                 name='Normal',
-                hovertext=normal_df['fixture'],
+                hovertext=normal_df.get('fixture', ''),
                 marker=dict(color='green')
             ))
 
+        if not anomaly_df.empty:
             fig.add_trace(go.Scatter(
                 x=anomaly_df['match_num'],
-                y=anomaly_df[metric],
+                y=anomaly_df[selected_metric],
                 mode='markers',
                 name='Anomaly',
-                hovertext=anomaly_df['fixture'],
+                hovertext=anomaly_df.get('fixture', ''),
                 marker=dict(color='red', size=10)
             ))
 
-            fig.update_layout(
-                title=metric.replace("_", " ").title(),
-                xaxis_title="Match Number",
-                yaxis_title=metric.replace('_', ' ').title(),
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown(describe_plot(df, metric, player))
+        fig.update_layout(
+            title=selected_metric.replace("_", " ").title(),
+            xaxis_title="Match Number",
+            yaxis_title=selected_metric.replace('_', ' ').title(),
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show LLM description with loading indicator
+        with st.spinner("Generating analysis..."):
+            analysis = describe_plot(df, selected_metric, player)
+            st.markdown(analysis)
 
 elif menu == "Compare Players":
     st.title("Comparative Analysis: Emre Can vs James Milner")
@@ -71,24 +91,30 @@ elif menu == "Compare Players":
         df2.assign(player="James Milner")
     ])
 
-    for metric in metrics:
-        if st.button(f"Compare '{metric.replace('_', ' ').title()}'"):
-            fig = px.line(
-                df_compare,
-                x="match_num",
-                y=metric,
-                color="player",
-                hover_data=["match_num", "fixture", "date", metric],
-                title=f"Comparison: {metric.replace('_', ' ').title()}",
-                markers=True
-            )
-            fig.update_layout(
-                xaxis_title="Match Number",
-                yaxis_title=metric.replace('_', ' ').title(),
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown(compare_players(df_can, df_milner, metric))
+    # Use selectbox instead of buttons
+    selected_metric = st.selectbox("Select a metric to compare:", metrics, format_func=lambda x: x.replace('_', ' ').title(), key="compare_metric")
+    
+    if selected_metric:
+        fig = px.line(
+            df_compare,
+            x="match_num",
+            y=selected_metric,
+            color="player",
+            hover_data=["match_num", "fixture", "date", selected_metric],
+            title=f"Comparison: {selected_metric.replace('_', ' ').title()}",
+            markers=True
+        )
+        fig.update_layout(
+            xaxis_title="Match Number",
+            yaxis_title=selected_metric.replace('_', ' ').title(),
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show LLM comparison with loading indicator
+        with st.spinner("Generating comparison..."):
+            comparison = compare_players(df_can, df_milner, selected_metric)
+            st.markdown(comparison)
 elif menu == "Matches":
     st.title("Match Files Available")
     matches = os.listdir("matches")
