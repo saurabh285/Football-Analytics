@@ -4,59 +4,14 @@ from config import metrics
 
 # Lazy model initialization - created after API key is configured
 _model = None
-_failed_models = set()  # Track models that have failed
 
-def get_model(reset=False):
+def get_model():
     """Get or create the generative model. Should be called after API key is configured."""
-    global _model, _failed_models
-    if reset:
-        _model = None
-    
+    global _model
     if _model is None:
-        # Try models in order of preference - don't include 'models/' prefix, 
+        # Use gemini-2.5-flash model - don't include 'models/' prefix, 
         # GenerativeModel will add it automatically
-        model_candidates = [
-            "gemini-1.5-flash-002",  # Default model name
-            "gemini-1.5-flash",      # Alternative
-            "gemini-pro",            # Widely available fallback
-            "gemini-1.5-pro",        # Pro version
-        ]
-        
-        last_error = None
-        for model_name in model_candidates:
-            if model_name in _failed_models:
-                continue
-            try:
-                _model = genai.GenerativeModel(model_name)
-                # Test if model is actually accessible
-                return _model
-            except Exception as e:
-                last_error = str(e)
-                _failed_models.add(model_name)
-                continue
-        
-        # If all models fail, try to list available models
-        try:
-            available_models = genai.list_models()
-            for model in available_models:
-                if hasattr(model, 'supported_generation_methods'):
-                    if 'generateContent' in model.supported_generation_methods:
-                        model_name = model.name.replace('models/', '')
-                        try:
-                            _model = genai.GenerativeModel(model_name)
-                            return _model
-                        except Exception:
-                            continue
-        except Exception:
-            pass
-        
-        # If we still don't have a model, raise an error with helpful message
-        raise Exception(
-            f"Could not initialize any Gemini model. Tried: {', '.join(model_candidates)}. "
-            f"Last error: {last_error}. "
-            f"Please check your API key and available models."
-        )
-    
+        _model = genai.GenerativeModel("gemini-2.5-flash")
     return _model
 
 def safe_llm_call(prompt, delay=1.5):
@@ -78,32 +33,16 @@ def safe_llm_call(prompt, delay=1.5):
     except Exception as e:
         error_msg = str(e)
         
-        # Check if it's a model not found error - try a different model
+        # Check if it's a model not found error - provide helpful message
         if "404" in error_msg or "not found" in error_msg.lower() or "not found for API version" in error_msg.lower():
-            # Mark current model as failed and try again with a different model
-            global _failed_models
+            # Try to get available models for debugging
             try:
-                current_model_name = get_model()._model_name
-                _failed_models.add(current_model_name.replace('models/', ''))
+                available = list(genai.list_models())
+                available_names = [m.name for m in available if hasattr(m, 'supported_generation_methods') and 'generateContent' in m.supported_generation_methods]
+                if available_names:
+                    return f"Model 'gemini-2.5-flash' not found. Available models that support generateContent: {', '.join(available_names[:5])}. Original error: {error_msg}"
             except:
                 pass
-            
-            # Try again with a different model
-            try:
-                model = get_model(reset=True)
-                time.sleep(delay)
-                response = model.generate_content(prompt)
-                if hasattr(response, 'text') and response.text:
-                    return response.text.strip()
-            except Exception as retry_error:
-                # If retry with different model fails, show available models
-                try:
-                    available = list(genai.list_models())
-                    available_names = [m.name for m in available if hasattr(m, 'supported_generation_methods') and 'generateContent' in m.supported_generation_methods]
-                    if available_names:
-                        return f"Model not found. Available models that support generateContent: {', '.join(available_names[:5])}. Please update the model name in llm_utils.py. Original error: {error_msg}"
-                except:
-                    pass
         
         # First retry
         try:
