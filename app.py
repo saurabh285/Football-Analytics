@@ -6,12 +6,12 @@ import plotly.graph_objects as go
 from config import metrics
 from data_loader import load_data
 from analysis import detect_anomalies
-from llm_utils import describe_plot, compare_players, model
+
 import google.generativeai as genai
 st.set_page_config(page_title="Football Analytics", layout="wide")
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
+from llm_utils import describe_plot, compare_players, model
 df_can, df_milner = load_data()
 
 fixture_df = pd.read_csv("match_fixtures.csv")

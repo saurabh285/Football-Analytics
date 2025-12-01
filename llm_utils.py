@@ -2,7 +2,7 @@ import time
 import google.generativeai as genai
 from config import metrics
 
-genai.configure(api_key=None)  # Set in app.py before calling
+# genai.configure(api_key=None)  # Set in app.py before calling
 
 model = genai.GenerativeModel("gemini-1.5-flash")
 
